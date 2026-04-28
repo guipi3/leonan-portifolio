@@ -1,0 +1,13 @@
+[build]
+pkgManager = "bun"
+
+[build.variables]
+BUN_INSTALL = "ci"
+
+[[phases]]
+name = "install"
+cmds = ["bun install --frozen-lockfile"]
+
+[[phases]]
+name = "build"
+cmds = ["bun run build"]
