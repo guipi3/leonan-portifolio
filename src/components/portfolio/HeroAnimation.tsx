@@ -90,8 +90,9 @@ const HeroAnimation = () => {
       }
 
       // ---------- CONIC LIGHT SWEEP ----------
-      const cx = width * 0.72;
-      const cy = height * 0.55;
+      // On mobile, move the sphere to the upper area so it doesn't sit behind the text.
+      const cx = isMobile ? width * 0.5 : width * 0.72;
+      const cy = isMobile ? height * 0.22 : height * 0.55;
       const sweepAngle = (time * (Math.PI * 2)) / 14;
       const sweepGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.6);
       sweepGrad.addColorStop(0, "rgba(0,0,0,0.04)");
@@ -101,7 +102,7 @@ const HeroAnimation = () => {
       void sweepAngle;
 
       // ---------- ORBITAL SPHERE ----------
-      const sphereR = Math.min(width, height) * 0.28;
+      const sphereR = Math.min(width, height) * (isMobile ? 0.2 : 0.28);
       const rotY = time * 0.25;
       const rotX = Math.sin(time * 0.15) * 0.35;
 
