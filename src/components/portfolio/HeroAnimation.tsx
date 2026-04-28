@@ -225,10 +225,13 @@ const HeroAnimation = () => {
 
   return (
     <div className="absolute inset-0 -z-0 pointer-events-none overflow-hidden">
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full opacity-50 md:opacity-100"
+      />
 
-      {/* Massive editorial label — typographic gesture */}
-      <div className="absolute top-1/2 left-6 sm:left-12 -translate-y-1/2 select-none">
+      {/* Massive editorial label — hidden on mobile to avoid clutter */}
+      <div className="hidden md:block absolute top-1/2 left-6 sm:left-12 -translate-y-1/2 select-none">
         <div
           className="text-[11px] font-mono uppercase tracking-[0.3em] text-foreground/40"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
@@ -237,18 +240,18 @@ const HeroAnimation = () => {
         </div>
       </div>
 
-      {/* Floating geometric accents */}
+      {/* Floating geometric accents — desktop only */}
       <div
-        className="absolute top-[22%] left-[18%] w-24 h-24 rounded-full border border-foreground/10"
+        className="hidden md:block absolute top-[22%] left-[18%] w-24 h-24 rounded-full border border-foreground/10"
         style={{ animation: "float-slow 14s ease-in-out infinite" }}
       />
       <div
-        className="absolute bottom-[28%] right-[18%] w-32 h-32 border border-foreground/10 rotate-45"
+        className="hidden md:block absolute bottom-[28%] right-[18%] w-32 h-32 border border-foreground/10 rotate-45"
         style={{ animation: "float-slow 20s ease-in-out infinite reverse" }}
       />
 
-      {/* Soft fade so text remains readable */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/80" />
+      {/* Stronger fade on mobile so text stays perfectly readable */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/20 to-background md:from-background/30 md:via-transparent md:to-background/80" />
     </div>
   );
 };
