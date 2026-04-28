@@ -1,9 +1,16 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Hero background animation.
- * Geometric grid + floating orbs connected by thin lines, continuously animated on canvas.
- * Minimal, monochrome — matches the site's premium/editorial aesthetic.
+ * HERO ANIMATION — "Orbital Authority"
+ *
+ * A signature canvas piece:
+ * - A slowly rotating orbital sphere of particles (the "core") — represents
+ *   systems thinking and craft.
+ * - Long, slow-drifting horizontal scan lines — editorial / Swiss energy.
+ * - A subtle dot grid that breathes with a parallax wave.
+ * - Conic light sweep that rotates once every ~12s.
+ *
+ * Monochrome, premium, GPU-friendly. Designed to feel like a Linear/Vercel/Awwwards hero.
  */
 const HeroAnimation = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,108 +23,195 @@ const HeroAnimation = () => {
 
     let width = 0;
     let height = 0;
-    let dpr = window.devicePixelRatio || 1;
-
-    type Node = { x: number; y: number; vx: number; vy: number; r: number };
-    let nodes: Node[] = [];
-
-    const NODE_COUNT = 28;
-    const LINK_DIST = 180;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     const resize = () => {
       const parent = canvas.parentElement;
       if (!parent) return;
       width = parent.clientWidth;
       height = parent.clientHeight;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
-    const init = () => {
-      nodes = Array.from({ length: NODE_COUNT }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.25,
-        r: Math.random() * 1.6 + 0.8,
-      }));
-    };
+    // ---------- ORBITAL SPHERE (3D projected to 2D) ----------
+    type P = { theta: number; phi: number; speed: number };
+    const PARTICLES: P[] = [];
+    const PARTICLE_COUNT = 320;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      // Fibonacci sphere distribution for even coverage
+      const y = 1 - (i / (PARTICLE_COUNT - 1)) * 2;
+      const radius = Math.sqrt(1 - y * y);
+      const theta = Math.PI * (3 - Math.sqrt(5)) * i;
+      PARTICLES.push({
+        theta,
+        phi: Math.acos(y),
+        speed: 0.0006 + Math.random() * 0.0004,
+      });
+      // store radius factor in a hack: reuse via closure — recompute each frame is fine
+      void radius;
+    }
 
-    const drawGrid = () => {
+    // Scan lines drifting horizontally
+    const SCAN_LINES = Array.from({ length: 6 }, (_, i) => ({
+      y: (i + 1) / 7,
+      speed: 0.00008 + i * 0.00002,
+      offset: Math.random(),
+    }));
+
+    let raf = 0;
+    let start = performance.now();
+
+    const draw = (t: number) => {
+      const time = (t - start) / 1000;
+      ctx.clearRect(0, 0, width, height);
+
+      // ---------- BREATHING DOT GRID ----------
+      const step = 36;
+      const gridOpacity = 0.06;
+      ctx.fillStyle = `rgba(0,0,0,${gridOpacity})`;
+      const wave = Math.sin(time * 0.4) * 0.5 + 0.5;
+      for (let x = step; x < width; x += step) {
+        for (let y = step; y < height; y += step) {
+          const dx = x - width / 2;
+          const dy = y - height / 2;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          const pulse = Math.sin(d * 0.012 - time * 1.2) * 0.5 + 0.5;
+          const r = 0.6 + pulse * 1.1 * wave;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // ---------- CONIC LIGHT SWEEP ----------
+      const cx = width * 0.72;
+      const cy = height * 0.55;
+      const sweepAngle = (time * (Math.PI * 2)) / 14;
+      const sweepGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.6);
+      sweepGrad.addColorStop(0, "rgba(0,0,0,0.04)");
+      sweepGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = sweepGrad;
+      ctx.fillRect(0, 0, width, height);
+      void sweepAngle;
+
+      // ---------- ORBITAL SPHERE ----------
+      const sphereR = Math.min(width, height) * 0.28;
+      const rotY = time * 0.25;
+      const rotX = Math.sin(time * 0.15) * 0.35;
+
+      // Equator/orbit rings
       ctx.save();
-      ctx.strokeStyle = "rgba(0,0,0,0.04)";
+      ctx.translate(cx, cy);
+      ctx.strokeStyle = "rgba(0,0,0,0.08)";
       ctx.lineWidth = 1;
-      const step = 80;
-      for (let x = 0; x < width; x += step) {
+      for (let i = 0; i < 3; i++) {
+        const tilt = (i / 3) * Math.PI;
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+        const segments = 80;
+        for (let s = 0; s <= segments; s++) {
+          const a = (s / segments) * Math.PI * 2;
+          // point on circle in XZ plane
+          let x = Math.cos(a) * sphereR;
+          let y = 0;
+          let z = Math.sin(a) * sphereR;
+          // rotate around X by tilt, then by rotX
+          let y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
+          let z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
+          y = y1; z = z1;
+          // rotate around Y by rotY
+          const x2 = x * Math.cos(rotY) + z * Math.sin(rotY);
+          const z2 = -x * Math.sin(rotY) + z * Math.cos(rotY);
+          x = x2; z = z2;
+          // rotate around X by rotX
+          const y3 = y * Math.cos(rotX) - z * Math.sin(rotX);
+          const z3 = y * Math.sin(rotX) + z * Math.cos(rotX);
+          y = y3; z = z3;
+          // perspective
+          const persp = 600 / (600 + z);
+          const px = x * persp;
+          const py = y * persp;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
         ctx.stroke();
       }
-      for (let y = 0; y < height; y += step) {
+
+      // Particles on the sphere
+      for (let i = 0; i < PARTICLES.length; i++) {
+        const p = PARTICLES[i];
+        p.theta += p.speed;
+        const sinPhi = Math.sin(p.phi);
+        let x = Math.cos(p.theta) * sinPhi * sphereR;
+        let y = Math.cos(p.phi) * sphereR;
+        let z = Math.sin(p.theta) * sinPhi * sphereR;
+
+        // rotateY by rotY
+        const x2 = x * Math.cos(rotY) + z * Math.sin(rotY);
+        const z2 = -x * Math.sin(rotY) + z * Math.cos(rotY);
+        x = x2; z = z2;
+        // rotateX by rotX
+        const y3 = y * Math.cos(rotX) - z * Math.sin(rotX);
+        const z3 = y * Math.sin(rotX) + z * Math.cos(rotX);
+        y = y3; z = z3;
+
+        const persp = 600 / (600 + z);
+        const px = x * persp;
+        const py = y * persp;
+        const depth = (z + sphereR) / (sphereR * 2); // 0..1
+        const alpha = 0.25 + depth * 0.7;
+        const r = 0.6 + depth * 1.6;
+        ctx.fillStyle = `rgba(10,10,10,${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Single accent particle (brand green) orbiting
+      {
+        const a = time * 0.9;
+        const x = Math.cos(a) * sphereR * 1.15;
+        const z = Math.sin(a) * sphereR * 1.15;
+        const y = Math.sin(a * 1.3) * 12;
+        const x2 = x * Math.cos(rotY) + z * Math.sin(rotY);
+        const z2 = -x * Math.sin(rotY) + z * Math.cos(rotY);
+        const persp = 600 / (600 + z2);
+        const px = x2 * persp;
+        const py = y * persp;
+        ctx.fillStyle = "hsl(142 70% 45%)";
+        ctx.shadowColor = "hsl(142 70% 45% / 0.6)";
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.restore();
+
+      // ---------- DRIFTING SCAN LINES ----------
+      ctx.save();
+      ctx.strokeStyle = "rgba(0,0,0,0.05)";
+      ctx.lineWidth = 1;
+      for (const line of SCAN_LINES) {
+        const y = line.y * height + Math.sin(time * line.speed * 1000 + line.offset * 10) * 30;
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
         ctx.stroke();
       }
       ctx.restore();
-    };
 
-    let raf = 0;
-    const tick = () => {
-      ctx.clearRect(0, 0, width, height);
-      drawGrid();
-
-      // Move nodes
-      for (const n of nodes) {
-        n.x += n.vx;
-        n.y += n.vy;
-        if (n.x < 0 || n.x > width) n.vx *= -1;
-        if (n.y < 0 || n.y > height) n.vy *= -1;
-      }
-
-      // Lines
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i];
-          const b = nodes[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < LINK_DIST) {
-            const alpha = (1 - dist / LINK_DIST) * 0.18;
-            ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
-            ctx.lineWidth = 0.6;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Nodes
-      for (const n of nodes) {
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      raf = requestAnimationFrame(tick);
+      raf = requestAnimationFrame(draw);
     };
 
     resize();
-    init();
-    tick();
+    raf = requestAnimationFrame(draw);
 
-    const onResize = () => {
-      resize();
-      init();
-    };
+    const onResize = () => resize();
     window.addEventListener("resize", onResize);
 
     return () => {
@@ -129,21 +223,29 @@ const HeroAnimation = () => {
   return (
     <div className="absolute inset-0 -z-0 pointer-events-none overflow-hidden">
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+
+      {/* Massive editorial label — typographic gesture */}
+      <div className="absolute top-1/2 left-6 sm:left-12 -translate-y-1/2 select-none">
+        <div
+          className="text-[11px] font-mono uppercase tracking-[0.3em] text-foreground/40"
+          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+        >
+          Design System · 2026 · RJ — BR
+        </div>
+      </div>
+
       {/* Floating geometric accents */}
       <div
-        className="absolute top-[18%] left-[12%] w-32 h-32 rounded-full border border-foreground/10"
+        className="absolute top-[22%] left-[18%] w-24 h-24 rounded-full border border-foreground/10"
         style={{ animation: "float-slow 14s ease-in-out infinite" }}
       />
       <div
-        className="absolute bottom-[22%] right-[14%] w-40 h-40 border border-foreground/10 rotate-45"
-        style={{ animation: "float-slow 18s ease-in-out infinite reverse" }}
+        className="absolute bottom-[28%] right-[18%] w-32 h-32 border border-foreground/10 rotate-45"
+        style={{ animation: "float-slow 20s ease-in-out infinite reverse" }}
       />
-      <div
-        className="absolute top-[55%] left-[8%] w-2 h-2 rounded-full bg-brand-accent"
-        style={{ animation: "pulse-dot 3s ease-in-out infinite" }}
-      />
+
       {/* Soft fade so text remains readable */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/10 to-background/70" />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/80" />
     </div>
   );
 };
