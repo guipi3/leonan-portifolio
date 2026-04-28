@@ -23,6 +23,7 @@ const HeroAnimation = () => {
 
     let width = 0;
     let height = 0;
+    let isMobile = window.innerWidth < 768;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     const resize = () => {
@@ -30,6 +31,7 @@ const HeroAnimation = () => {
       if (!parent) return;
       width = parent.clientWidth;
       height = parent.clientHeight;
+      isMobile = window.innerWidth < 768;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
@@ -40,7 +42,7 @@ const HeroAnimation = () => {
     // ---------- ORBITAL SPHERE (3D projected to 2D) ----------
     type P = { theta: number; phi: number; speed: number };
     const PARTICLES: P[] = [];
-    const PARTICLE_COUNT = 320;
+    const PARTICLE_COUNT = isMobile ? 140 : 320;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       // Fibonacci sphere distribution for even coverage
       const y = 1 - (i / (PARTICLE_COUNT - 1)) * 2;
@@ -88,8 +90,9 @@ const HeroAnimation = () => {
       }
 
       // ---------- CONIC LIGHT SWEEP ----------
-      const cx = width * 0.72;
-      const cy = height * 0.55;
+      // On mobile, move the sphere to the upper area so it doesn't sit behind the text.
+      const cx = isMobile ? width * 0.5 : width * 0.72;
+      const cy = isMobile ? height * 0.22 : height * 0.55;
       const sweepAngle = (time * (Math.PI * 2)) / 14;
       const sweepGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.6);
       sweepGrad.addColorStop(0, "rgba(0,0,0,0.04)");
@@ -99,7 +102,7 @@ const HeroAnimation = () => {
       void sweepAngle;
 
       // ---------- ORBITAL SPHERE ----------
-      const sphereR = Math.min(width, height) * 0.28;
+      const sphereR = Math.min(width, height) * (isMobile ? 0.2 : 0.28);
       const rotY = time * 0.25;
       const rotX = Math.sin(time * 0.15) * 0.35;
 
@@ -222,10 +225,13 @@ const HeroAnimation = () => {
 
   return (
     <div className="absolute inset-0 -z-0 pointer-events-none overflow-hidden">
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full opacity-50 md:opacity-100"
+      />
 
-      {/* Massive editorial label — typographic gesture */}
-      <div className="absolute top-1/2 left-6 sm:left-12 -translate-y-1/2 select-none">
+      {/* Massive editorial label — hidden on mobile to avoid clutter */}
+      <div className="hidden md:block absolute top-1/2 left-6 sm:left-12 -translate-y-1/2 select-none">
         <div
           className="text-[11px] font-mono uppercase tracking-[0.3em] text-foreground/40"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
@@ -234,18 +240,18 @@ const HeroAnimation = () => {
         </div>
       </div>
 
-      {/* Floating geometric accents */}
+      {/* Floating geometric accents — desktop only */}
       <div
-        className="absolute top-[22%] left-[18%] w-24 h-24 rounded-full border border-foreground/10"
+        className="hidden md:block absolute top-[22%] left-[18%] w-24 h-24 rounded-full border border-foreground/10"
         style={{ animation: "float-slow 14s ease-in-out infinite" }}
       />
       <div
-        className="absolute bottom-[28%] right-[18%] w-32 h-32 border border-foreground/10 rotate-45"
+        className="hidden md:block absolute bottom-[28%] right-[18%] w-32 h-32 border border-foreground/10 rotate-45"
         style={{ animation: "float-slow 20s ease-in-out infinite reverse" }}
       />
 
-      {/* Soft fade so text remains readable */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/80" />
+      {/* Stronger fade on mobile so text stays perfectly readable */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/20 to-background md:from-background/30 md:via-transparent md:to-background/80" />
     </div>
   );
 };
