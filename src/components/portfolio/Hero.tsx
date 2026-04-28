@@ -1,3 +1,5 @@
+import HeroAnimation from "./HeroAnimation";
+
 const Hero = () => {
   return (
     <header className="relative w-full min-h-screen flex flex-col justify-between p-6 sm:p-12 z-10 overflow-hidden bg-background">
@@ -9,6 +11,9 @@ const Hero = () => {
             "radial-gradient(ellipse 80% 50% at 50% 30%, hsl(0 0% 95%), transparent 70%)",
         }}
       />
+
+      {/* Animated background */}
+      <HeroAnimation />
 
       {/* Top Nav */}
       <div className="flex justify-between items-start w-full max-w-[1400px] mx-auto z-10 animate-fade-up">
