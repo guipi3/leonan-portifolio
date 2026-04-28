@@ -23,6 +23,7 @@ const HeroAnimation = () => {
 
     let width = 0;
     let height = 0;
+    let isMobile = window.innerWidth < 768;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     const resize = () => {
@@ -30,6 +31,7 @@ const HeroAnimation = () => {
       if (!parent) return;
       width = parent.clientWidth;
       height = parent.clientHeight;
+      isMobile = window.innerWidth < 768;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
@@ -40,7 +42,7 @@ const HeroAnimation = () => {
     // ---------- ORBITAL SPHERE (3D projected to 2D) ----------
     type P = { theta: number; phi: number; speed: number };
     const PARTICLES: P[] = [];
-    const PARTICLE_COUNT = 320;
+    const PARTICLE_COUNT = isMobile ? 140 : 320;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       // Fibonacci sphere distribution for even coverage
       const y = 1 - (i / (PARTICLE_COUNT - 1)) * 2;
